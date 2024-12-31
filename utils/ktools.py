@@ -94,8 +94,8 @@ def s1tc_tac(t, Cwb, td, va, K1, k2, Cp=None):
     return q_iv, q_ev
 
 def create_aath_bfm_matrix(t, Cwb, Cp=None, 
-                           td_params=(0,16,0.25),
-                           Tc_params=(3,16,0.25),
+                           td_params=(0,10.25,0.25),
+                           Tc_params=(3,10.25,0.25),
                            k2_params=(0.00001,0.05,100),
                            useVa=False
                            ):   
@@ -137,9 +137,6 @@ def create_aath_bfm_matrix(t, Cwb, Cp=None,
         sysmat[ii,:,0] = Cwb_cdf_t0_shift - Cwb_cdf_t0w_shift
         sysmat[ii,:,1] = np.interp(t-td-Tc, t, basis_k2[:,idx_k2])
         
-    # f = interp1d(t_interp, sysmat, kind='linear', axis=1, bounds_error=False, fill_value=(sysmat[:,0,:], sysmat[:,-1,:]))
-    # sysmat = f(t)
-    
     # Slack constraint such that:
     #   F - K1 - s1 = 0; i.e., F <= K1
     #   using an arbitrary slack value 1e20
@@ -170,11 +167,7 @@ def aath_bfm(t, Cwb, Q_t, Cp=None, multi=False, **kwargs):
     ncurves, nt = Q_t.shape
     Q_t_fit = np.zeros_like(Q_t)
     
-    sysmat, td_lut, Tc_lut, k2_lut = create_aath_bfm_matrix(t, Cwb, Cp=Cp,
-                                                            td_params=(0,10.25,0.5),
-                                                            Tc_params=(3,10.25,0.25),
-                                                            k2_params=(0.00001,0.05,100),
-                                                            *kwargs)
+    sysmat, td_lut, Tc_lut, k2_lut = create_aath_bfm_matrix(t, Cwb, Cp=Cp, *kwargs)
     
     nbasis, nt_sys, nparams = sysmat.shape
     if nt_sys > nt:
@@ -356,16 +349,16 @@ def s1tc_bfm(t, Cwb, Q_t, Cp=None, multi=False,
     # aic = np.zeros(ncurves)
     aic = akaike_information_criteria(Q_t, Q_t_fit, 4) # nparams = 4; vb, K1, k2, td
     
-    kparams = {'td' : td, 
-               'Tc' : Tc, 
-               'F' : F*60.0,
-               'K1' : K1*60.0, 
-               'k2' : k2*60.0, 
-               'E' : E,
-               'PS' : PS*60.0, 
-               'vb' : vb, 
-               've' : ve,
-               'AIC' : aic
+    kparams = {'td' : td,       # [s]
+               'Tc' : Tc,       # [s]
+               'F' : F*60.0,    # [ml/min/cm3]
+               'K1' : K1*60.0,  # [ml/min/cm3]
+               'k2' : k2*60.0,  # [min-1]
+               'E' : E,         # unitless
+               'PS' : PS*60.0,  # [ml/min/cm3]
+               'vb' : vb,       # [ml/cm3]
+               've' : ve,       # [ml/cm3]
+               'aic' : aic
                }
         
     print(f'S1TC BFM took {time.time() - t_str0:0.1f} s')
