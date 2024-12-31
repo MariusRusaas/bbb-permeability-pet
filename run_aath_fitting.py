@@ -57,4 +57,6 @@ fig.supxlabel('Time [s]', fontweight='bold')
 fig.supylabel('Activity [kBq/mL]', fontweight='bold')
 fig.show()
 
+fig.savefig('data/sampleTAC_fitting.png', dpi=300, bbox_inches='tight')
+
 print(f'Process took {time.time() - t_start:0.1f} s')

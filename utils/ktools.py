@@ -236,9 +236,19 @@ def aath_bfm(t, Cwb, Q_t, Cp=None, multi=False, **kwargs):
     vb = F*Tc
     ve = np.divide(K1, k2, where=k2>0, out=np.zeros_like(K1))
     
-    kparams = {'td' : td, 'Tc' : Tc, 'F' : F*60.0,
-               'K1' : K1*60.0, 'k2' : k2*60.0, 'E' : E,
-               'PS' : PS*60.0, 'vb' : vb, 've' : ve}
+    aic = akaike_information_criteria(Q_t[:,:len(t)], Q_t_fit, 5) # nparams = 5; F, K1, k2, td, Tc
+    
+    kparams = {'td' : td,       # [s]
+               'Tc' : Tc,       # [s]
+               'F' : F*60.0,    # [ml/min/cm3]
+               'K1' : K1*60.0,  # [ml/min/cm3]
+               'k2' : k2*60.0,  # [min-1]
+               'E' : E,         # unitless
+               'PS' : PS*60.0,  # [ml/min/cm3]
+               'vb' : vb,       # [ml/cm3]
+               've' : ve,       # [ml/cm3]
+               'aic' : aic
+               }
         
     print(f'AATH BFM took {time.time() - t_str0:0.1f} s')
     
@@ -346,10 +356,17 @@ def s1tc_bfm(t, Cwb, Q_t, Cp=None, multi=False,
     # aic = np.zeros(ncurves)
     aic = akaike_information_criteria(Q_t, Q_t_fit, 4) # nparams = 4; vb, K1, k2, td
     
-    kparams = {'td' : td, 'Tc' : Tc, 'F' : F*60.0,
-               'K1' : K1*60.0, 'k2' : k2*60.0, 'E' : E,
-               'PS' : PS*60.0, 'vb' : vb, 've' : ve,
-               'AIC' : aic}
+    kparams = {'td' : td, 
+               'Tc' : Tc, 
+               'F' : F*60.0,
+               'K1' : K1*60.0, 
+               'k2' : k2*60.0, 
+               'E' : E,
+               'PS' : PS*60.0, 
+               'vb' : vb, 
+               've' : ve,
+               'AIC' : aic
+               }
         
     print(f'S1TC BFM took {time.time() - t_str0:0.1f} s')
     
