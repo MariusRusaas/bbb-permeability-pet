@@ -20,9 +20,6 @@ python -m venv venv-bbb
 # ====================================
 # For Windows
 venv-bbb/Scripts/activate
-
-# For MacOS
-source venv-bbb/bin/activate
 # ====================================
 
 # Install required packages
