@@ -1,5 +1,4 @@
-
-![BBBPS_3D_v0](https://github.com/user-attachments/assets/6573f4b4-d84a-4312-adc8-13dd4b446dfc)
+![BBBPS_3D_v0](https://github.com/user-attachments/assets/4c40fafd-6c36-4dca-8a6d-a3cc0db9220a)
 
 ## Quantitative PET imaging and modeling of molecular blood-brain barrier permeability
 This repository contains the code and sample time-activity curve data for quantifying the blood-brain barrier (BBB) permeability of molecular radiotracers with high-temporal resolution dynamic positron emission tomography (PET).
