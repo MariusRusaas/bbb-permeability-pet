@@ -93,7 +93,7 @@ def s1tc_tac(t, Cwb, td, va, K1, k2, Cp=None):
     
     return q_iv, q_ev
 
-def create_aath_bfm_matrix(t, Cwb, Cp=None, 
+def create_aath_bfm_matrix(t, Cwb, Cp=None, printlog=False, 
                            td_params=(0,10.25,0.25),
                            Tc_params=(3,10.25,0.25),
                            k2_params=(0.00001,0.05,100),
@@ -150,11 +150,11 @@ def create_aath_bfm_matrix(t, Cwb, Cp=None,
         for ii, td in enumerate(td_lut):
             sysmat[ii,:len(t),-1] = np.interp(t-td, t, Cwb, Cwb[0], Cwb[-1])
     
-    print(f'Precomputing basis functions took {time.time() - t_str0:0.1f} s')
+    if printlog: print(f'Precomputing basis functions took {time.time() - t_str0:0.1f} s')
     
     return sysmat, td_lut, Tc_lut, k2_lut
 
-def aath_bfm(t, Cwb, Q_t, Cp=None, multi=False, **kwargs):
+def aath_bfm(t, Cwb, Q_t, Cp=None, multi=False, printlog=False, **kwargs):
     
     t_str0 = time.time()
     
@@ -167,14 +167,15 @@ def aath_bfm(t, Cwb, Q_t, Cp=None, multi=False, **kwargs):
     ncurves, nt = Q_t.shape
     Q_t_fit = np.zeros_like(Q_t)
     
-    sysmat, td_lut, Tc_lut, k2_lut = create_aath_bfm_matrix(t, Cwb, Cp=Cp, *kwargs)
+    sysmat, td_lut, Tc_lut, k2_lut = create_aath_bfm_matrix(t, Cwb, Cp=Cp, printlog=printlog, *kwargs)
     
     nbasis, nt_sys, nparams = sysmat.shape
     if nt_sys > nt:
         Q_t = np.copy(np.pad(Q_t, ((0,0),(0, int(nt_sys - nt))), mode='constant', constant_values=0))
     
-    print('ncurves:', ncurves)
-    print('sysmat dimensions:', sysmat.shape)
+    if printlog:
+        print('ncurves:', ncurves)
+        print('sysmat dimensions:', sysmat.shape)
     
     td = np.zeros(ncurves)
     Tc = np.zeros(ncurves)
@@ -242,15 +243,16 @@ def aath_bfm(t, Cwb, Q_t, Cp=None, multi=False, **kwargs):
                've' : ve,       # [ml/cm3]
                'aic' : aic
                }
-        
-    print(f'AATH BFM took {time.time() - t_str0:0.1f} s')
+
+    if printlog:    
+        print(f'AATH BFM took {time.time() - t_str0:0.1f} s')
     
     if len(Q_t_fit) == 1:
         Q_t_fit = np.squeeze(Q_t_fit, axis=0)
     
     return Q_t_fit, kparams
     
-def s1tc_bfm(t, Cwb, Q_t, Cp=None, multi=False, 
+def s1tc_bfm(t, Cwb, Q_t, Cp=None, multi=False, printlog=False,
              td_params=(0,6.25,0.5),
              k2_params=(0.00001,0.05,100), 
              **kwargs):
@@ -277,9 +279,10 @@ def s1tc_bfm(t, Cwb, Q_t, Cp=None, multi=False,
     for ii, (td, k2) in enumerate(zip(td_lut, k2_lut)):
         sysmat[ii,:,0] = np.interp(t-td, t, Cwb, Cwb[0], Cwb[-1])
         sysmat[ii,:,1] = np.interp(t-td, t, convolve_exp(t, Cp, k2))
-
-    print('ncurves:', ncurves)
-    print('sysmat dimensions:', sysmat.shape)
+    
+    if printlog:
+        print('ncurves:', ncurves)
+        print('sysmat dimensions:', sysmat.shape)
     
     td = np.zeros(ncurves)
     K1 = np.zeros(ncurves)
@@ -360,7 +363,8 @@ def s1tc_bfm(t, Cwb, Q_t, Cp=None, multi=False,
                've' : ve,       # [ml/cm3]
                'aic' : aic
                }
-        
-    print(f'S1TC BFM took {time.time() - t_str0:0.1f} s')
+
+    if printlog:
+        print(f'S1TC BFM took {time.time() - t_str0:0.1f} s')
     
     return Q_t_fit, kparams
