@@ -138,7 +138,7 @@ def create_aath_bfm_matrix(t, Cwb, Cp=None, printlog=False,
         sysmat[ii,:,1] = np.interp(t-td-Tc, t, basis_k2[:,idx_k2])
         
     # Slack constraint such that:
-    #   F - K1 - s1 = 0; i.e., F <= K1
+    #   F - K1 - s1 = 0; i.e., F >= K1
     #   using an arbitrary slack value 1e20
     sysmat = np.pad(sysmat, pad_width=((0,0),(0,1),(0,1)), mode='constant', constant_values=0)
     sysmat[:,-1,0] = 1e10
@@ -167,7 +167,7 @@ def aath_bfm(t, Cwb, Q_t, Cp=None, multi=False, printlog=False, **kwargs):
     ncurves, nt = Q_t.shape
     Q_t_fit = np.zeros_like(Q_t)
     
-    sysmat, td_lut, Tc_lut, k2_lut = create_aath_bfm_matrix(t, Cwb, Cp=Cp, printlog=printlog, *kwargs)
+    sysmat, td_lut, Tc_lut, k2_lut = create_aath_bfm_matrix(t, Cwb, Cp=Cp, printlog=printlog, **kwargs)
     
     nbasis, nt_sys, nparams = sysmat.shape
     if nt_sys > nt:
