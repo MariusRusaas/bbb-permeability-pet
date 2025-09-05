@@ -204,7 +204,7 @@ def update_search_ranges(prev_td: Tuple[float, float, float],
 
 
 
-def parsePetMetricsJson(jsonPath):
+def parsePetMetricsJson(jsonPath, PET=None):
     """
     Load a PET metrics JSON file and return a pandas DataFrame with selected metadata.
 
@@ -221,21 +221,25 @@ def parsePetMetricsJson(jsonPath):
     maskLabels = jsonData.get("Mask Labels", {})
     metrics = jsonData.get("Metrics", {})
 
-    # Assume only one PET dataset key
-    petKey = next(iter(metrics))
-    organs = metrics[petKey].get("organs", {})
-
     rows = []
-    for organId, organData in organs.items():
-        organName = maskLabels.get(organId, f"Organ_{organId}")
-        row = {
-            "patient": patient,
-            "organ": organName,
-            "mean": np.array(organData.get("avg")),
-            "size":organData.get("size"),
-            "path": jsonPath,
-            "filename": os.path.basename(jsonPath)
-        }
-        rows.append(row)
+    # Assume only one PET dataset key
+
+    for petKey in jsonData.get("Procedure")["PET list"]:
+
+        organs = metrics[petKey].get("organs", {})
+
+        for organId, organData in organs.items():
+            organName = maskLabels.get(organId, f"Organ_{organId}")
+            row = {
+                "patient": patient,
+                "scanKey":petKey,
+                "organ": organName,
+                "mean": np.array(organData.get("avg")),
+                "size":organData.get("size"),
+                "Framing":jsonData.get('framing [s]')[petKey],
+                "path": jsonPath,
+                "filename": os.path.basename(jsonPath)
+            }
+            rows.append(row)
 
     return pd.DataFrame(rows)
