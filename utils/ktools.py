@@ -6,7 +6,7 @@ Created on Thu Oct  3 21:54:59 2024
 """
 import numpy as np
 
-from scipy.integrate import cumtrapz
+from scipy.integrate import cumulative_trapezoid
 from scipy.optimize import nnls
 
 from functools import partial
@@ -30,7 +30,7 @@ def convolve_exp(t, f_t, alpha):
     """
     
     if alpha == 0:
-        return cumtrapz(f_t, x=t, initial=0)
+        return cumulative_trapezoid(f_t, x=t, initial=0)
     
     ti_0 = np.expand_dims(t[:-1], axis=-1)
     ti_1 = np.expand_dims(t[1:], axis=-1)
@@ -68,7 +68,7 @@ def aath_tac(t, Cwb, td, Tc, F, K1, k2, Cp=None):
     if Cp is None:
         Cp = Cwb
         
-    aif_cdf = cumtrapz(Cwb, x=t, initial=0)
+    aif_cdf = cumulative_trapezoid(Cwb, x=t, initial=0)
     aif_cdf_td = np.interp(t-td, t, aif_cdf)
     aif_cdf_td_Tc = np.interp(t-td-Tc, t, aif_cdf)
     
@@ -120,7 +120,7 @@ def create_aath_bfm_matrix(t, Cwb, Cp=None, printlog=False,
 
     ncombos = td_lut.size
     
-    Cwb_cdf = cumtrapz(Cwb, x=t, initial=0)
+    Cwb_cdf = cumulative_trapezoid(Cwb, x=t, initial=0)
 
     basis_k2 = np.zeros((nt, nk2))
     for ii in range(nk2):
