@@ -231,12 +231,12 @@ def parsePetMetricsJson(jsonPath, PET=None):
         for organId, organData in organs.items():
             organName = maskLabels.get(organId, f"Organ_{organId}")
             row = {
-                "patient": patient,
+                "subject": patient,
                 "scanKey":petKey,
-                "organ": organName,
+                "region": organName,
                 "mean": np.array(organData.get("avg")),
                 "size":organData.get("size"),
-                "Framing":jsonData.get('framing [s]')[petKey],
+                "framing":jsonData.get('framing [s]')[petKey],
                 "path": jsonPath,
                 "filename": os.path.basename(jsonPath)
             }
