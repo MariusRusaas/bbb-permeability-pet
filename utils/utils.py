@@ -3,6 +3,63 @@ from typing import Tuple, Dict
 import json
 import os
 import pandas as pd
+try:
+    from . ktools import aath_bfm
+except:
+    from utils.ktools import aath_bfm
+
+
+def perfusionPipeline(IF, IFframes, TAC, TACframes, numit=0, adjustTAC=False):
+    IFframes = np.array(IFframes); IF = np.array(IF)
+    TACframes = np.array(TACframes); TAC = np.array(TAC)
+    # (Optionally) dampen signal spill-in
+    frms = []; n = 0
+    while adjustTAC and IF[n] < 0.1*np.max(IF):
+        frms.append(n)
+        n+=1
+    if len(frms) > 0: TAC[frms] = 0
+    
+    # resample to second-intervals
+    frames = np.array([i for i in range(0, np.floor(np.min([np.max(IFframes), np.max(TACframes)])).astype(int)+1)])
+    IF = np.interp(frames, IFframes, IF)
+    TAC = np.interp(frames, TACframes, TAC)
+
+
+    td_params, Tc_params, k2_params = (-10,10,1), (2,40,1), (0.00001,0.05,100)
+    fitcrv, bbbresult = aath_bfm(frames, IF, TAC, td_params=td_params, Tc_params=Tc_params, k2_params=k2_params)
+    bstfit, bestbb = fitcrv, bbbresult
+
+    for i in range(numit):
+        ranges = update_search_ranges(td_params, Tc_params, k2_params,
+                                  best_td=bbbresult['td'][0], best_Tc=bbbresult['Tc'][0], best_k2=bbbresult['k2'][0]/60,
+                                  iter_idx=i,
+                                  td_bounds=(-10, 10), Tc_bounds=(2, 40), k2_bounds=(1e-6, 0.09),
+                                  min_step=0.01)
+        td_params, Tc_params, k2_params = ranges['td_params'], ranges['Tc_params'], ranges['k2_params']
+        fitcrv, bbbresult = aath_bfm(frames, IF, TAC, 
+                                    td_params=td_params, 
+                                    Tc_params=Tc_params, 
+                                    k2_params=k2_params)
+        
+        if bbbresult['aic'][0] < bestbb['aic'][0]: bstfit, bestbb = fitcrv, bbbresult 
+
+    if bestbb is None:return None
+
+    return {
+        'delay': bestbb['td'][0],
+        'F':     bestbb['F'][0],
+        'Tc':    bestbb['Tc'][0],
+        'k1':    bestbb['K1'][0],
+        'k2':    bestbb['k2'][0],
+        'E':     bestbb['E'][0],
+        'PS' :   bestbb['PS'][0], 
+        'vb' :   bestbb['vb'][0],       
+        've' :   bestbb['ve'][0],       
+        'AIC':   bestbb['aic'][0],
+        'fitcurve':bstfit,
+        'frames':frames
+    }
+
 
 # ----------------------------
 # Core adaptive update helpers
