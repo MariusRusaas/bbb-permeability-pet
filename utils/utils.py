@@ -9,17 +9,18 @@ except:
     from utils.ktools import aath_bfm
 
 
-def perfusionPipeline(IF, IFframes, TAC, TACframes, numit=0, adjustTAC=False):
+def perfusionPipeline(IF, IFframes, TAC, TACframes, numit=1, adjustTAC=False):
     IFframes = np.array(IFframes); IF = np.array(IF)
     TACframes = np.array(TACframes); TAC = np.array(TAC)
     # (Optionally) dampen signal spill-in
     frms = []; n = 0
-    while adjustTAC and IF[n] < 0.1*np.max(IF):
+    while adjustTAC and IF[n] < 0.5*np.max(IF):
         frms.append(n)
         n+=1
     if len(frms) > 0: TAC[frms] = 0
     
     # resample to second-intervals
+    IFframes = IFframes - IFframes[0]; TACframes = TACframes - TACframes[0] # Start framing at curve in 0
     frames = np.array([i for i in range(0, np.floor(np.min([np.max(IFframes), np.max(TACframes)])).astype(int)+1)])
     IF = np.interp(frames, IFframes, IF)
     TAC = np.interp(frames, TACframes, TAC)
@@ -29,7 +30,7 @@ def perfusionPipeline(IF, IFframes, TAC, TACframes, numit=0, adjustTAC=False):
     fitcrv, bbbresult = aath_bfm(frames, IF, TAC, td_params=td_params, Tc_params=Tc_params, k2_params=k2_params)
     bstfit, bestbb = fitcrv, bbbresult
 
-    for i in range(numit):
+    for i in range(numit-1):
         ranges = update_search_ranges(td_params, Tc_params, k2_params,
                                   best_td=bbbresult['td'][0], best_Tc=bbbresult['Tc'][0], best_k2=bbbresult['k2'][0]/60,
                                   iter_idx=i,
