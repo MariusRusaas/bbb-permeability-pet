@@ -26,7 +26,7 @@ def perfusionPipeline(IF, IFframes, TAC, TACframes, numit=1, adjustTAC=False):
     TAC = np.interp(frames, TACframes, TAC)
 
 
-    td_params, Tc_params, k2_params = (-10,10,1), (2,40,1), (0.00001,0.05,100)
+    td_params, Tc_params, k2_params = (-10,50,1), (2,50,1), (1e-5,0.25,100)
     fitcrv, bbbresult = aath_bfm(frames, IF, TAC, td_params=td_params, Tc_params=Tc_params, k2_params=k2_params)
     bstfit, bestbb = fitcrv, bbbresult
 
@@ -34,7 +34,7 @@ def perfusionPipeline(IF, IFframes, TAC, TACframes, numit=1, adjustTAC=False):
         ranges = update_search_ranges(td_params, Tc_params, k2_params,
                                   best_td=bbbresult['td'][0], best_Tc=bbbresult['Tc'][0], best_k2=bbbresult['k2'][0]/60,
                                   iter_idx=i,
-                                  td_bounds=(-10, 10), Tc_bounds=(2, 40), k2_bounds=(1e-6, 0.09),
+                                  td_bounds=(-10, 50), Tc_bounds=(3, 50), k2_bounds=(1e-5, 0.25),
                                   min_step=0.01)
         td_params, Tc_params, k2_params = ranges['td_params'], ranges['Tc_params'], ranges['k2_params']
         fitcrv, bbbresult = aath_bfm(frames, IF, TAC, 
