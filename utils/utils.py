@@ -9,7 +9,8 @@ except:
     from utils.ktools import aath_bfm
 
 
-def perfusionPipeline(IF, IFframes, TAC, TACframes, numit=1, adjustTAC=False):
+def perfusionPipeline(IF, IFframes, TAC, TACframes, numit=1, adjustTAC=False, td_params=(-10,50,1), Tc_params=(2,50,1), k2_params=(1e-5,0.25,100)):
+
     IFframes = np.array(IFframes); IF = np.array(IF)
     TACframes = np.array(TACframes); TAC = np.array(TAC)
     # (Optionally) dampen signal spill-in
@@ -25,24 +26,23 @@ def perfusionPipeline(IF, IFframes, TAC, TACframes, numit=1, adjustTAC=False):
     IF = np.interp(frames, IFframes, IF)
     TAC = np.interp(frames, TACframes, TAC)
 
-
-    td_params, Tc_params, k2_params = (-10,50,1), (2,50,1), (1e-5,0.25,100)
     fitcrv, bbbresult = aath_bfm(frames, IF, TAC, td_params=td_params, Tc_params=Tc_params, k2_params=k2_params)
     bstfit, bestbb = fitcrv, bbbresult
 
-    for i in range(numit-1):
-        ranges = update_search_ranges(td_params, Tc_params, k2_params,
-                                  best_td=bbbresult['td'][0], best_Tc=bbbresult['Tc'][0], best_k2=bbbresult['k2'][0]/60,
-                                  iter_idx=i,
-                                  td_bounds=(-10, 50), Tc_bounds=(3, 50), k2_bounds=(1e-5, 0.25),
-                                  min_step=0.01)
-        td_params, Tc_params, k2_params = ranges['td_params'], ranges['Tc_params'], ranges['k2_params']
-        fitcrv, bbbresult = aath_bfm(frames, IF, TAC, 
-                                    td_params=td_params, 
-                                    Tc_params=Tc_params, 
-                                    k2_params=k2_params)
-        
-        if bbbresult['aic'][0] < bestbb['aic'][0]: bstfit, bestbb = fitcrv, bbbresult 
+    if numit > 1:
+        for i in range(numit-1):
+            ranges = update_search_ranges(td_params, Tc_params, k2_params,
+                                    best_td=bbbresult['td'][0], best_Tc=bbbresult['Tc'][0], best_k2=bbbresult['k2'][0]/60,
+                                    iter_idx=i,
+                                    td_bounds=(-10, 50), Tc_bounds=(3, 50), k2_bounds=(1e-5, 0.25),
+                                    min_step=0.01)
+            td_params, Tc_params, k2_params = ranges['td_params'], ranges['Tc_params'], ranges['k2_params']
+            fitcrv, bbbresult = aath_bfm(frames, IF, TAC, 
+                                        td_params=td_params, 
+                                        Tc_params=Tc_params, 
+                                        k2_params=k2_params)
+            
+            if bbbresult['aic'][0] < bestbb['aic'][0]: bstfit, bestbb = fitcrv, bbbresult 
 
     if bestbb is None:return None
 
@@ -293,6 +293,7 @@ def parsePetMetricsJson(jsonPath, PET=None):
                 "scanKey":petKey,
                 "region": organName,
                 "mean": np.array(organData.get("avg")),
+                "median": np.array(organData.get("median")),
                 "size":organData.get("size"),
                 "framing":jsonData.get('framing [s]')[petKey],
                 "path": jsonPath,
