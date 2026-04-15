@@ -1,3 +1,5 @@
+import math
+
 import numpy as np
 from typing import Tuple, Dict
 import json
@@ -9,13 +11,13 @@ except:
     from utils.ktools import aath_bfm
 
 
-def perfusionPipeline(IF, IFframes, TAC, TACframes, numit=1, adjustTAC=False, td_params=(-10,50,1), Tc_params=(2,50,1), k2_params=(1e-5,0.25,100)):
+def perfusionPipeline(IF, IFframes, TAC, TACframes, numit=1, adjustTAC=(False,0.3), td_params=(-10,50,1), Tc_params=(2,50,1), k2_params=(1e-5,0.25,100)):
 
     IFframes = np.array(IFframes); IF = np.array(IF)
     TACframes = np.array(TACframes); TAC = np.array(TAC)
     # (Optionally) dampen signal spill-in
     frms = []; n = 0
-    while adjustTAC and IF[n] < 0.5*np.max(IF):
+    while adjustTAC[0] and IF[n] < adjustTAC[1]*np.max(IF):
         frms.append(n)
         n+=1
     if len(frms) > 0: TAC[frms] = 0
@@ -58,6 +60,8 @@ def perfusionPipeline(IF, IFframes, TAC, TACframes, numit=1, adjustTAC=False, td
         've' :   bestbb['ve'][0],       
         'AIC':   bestbb['aic'][0],
         'fitcurve':bstfit,
+        'TAC': TAC,
+        'IF': IF,
         'frames':frames
     }
 
@@ -261,8 +265,9 @@ def update_search_ranges(prev_td: Tuple[float, float, float],
 
 
 
+# ---------------------------- Parse Files ----------------------------
 
-def parsePetMetricsJson(jsonPath, PET=None):
+def parsePetMetricsJson(jsonPath, frmInfo=False):
     """
     Load a PET metrics JSON file and return a pandas DataFrame with selected metadata.
 
@@ -299,6 +304,55 @@ def parsePetMetricsJson(jsonPath, PET=None):
                 "path": jsonPath,
                 "filename": os.path.basename(jsonPath)
             }
+            if frmInfo:
+                row["frameStart"] = jsonData.get('FrameTimesStart [s]')[petKey]
+                row["frameDuration"] = jsonData.get('FrameDuration [s]')[petKey]
             rows.append(row)
 
     return pd.DataFrame(rows)
+
+
+def parse_if_file(filepath):
+    # Load the data from the file
+    data = np.loadtxt(filepath)
+    data = np.unique(data, axis=0)
+    newarr = []
+    for i in range(data.shape[0]):
+        if i == 0: newarr.append(data[i])
+        else:
+            if data[i, 0] != newarr[-1][0]: newarr.append(data[i])
+    
+    data = np.array(newarr)
+    # Split into time and activity columns
+    time_frames = data[:, 0] * 60  # Convert minutes to seconds
+    activity = data[:, 1] * 1000 # convert to kBq
+    
+    return time_frames, activity
+
+
+
+# ------ JSON DEFS ------
+def _replace_nonfinite_in_list( x):
+    """Recursively replace NaN/Inf in lists with None so JSON is valid when allow_nan=False."""
+    if isinstance(x, list):
+        return [_replace_nonfinite_in_list(v) for v in x]
+    if isinstance(x, float) and not math.isfinite(x):
+        return None
+    return x
+
+def json_default( obj):
+    """Minimal, safe conversions for JSON serialization."""
+    # --- NumPy scalars & arrays ---
+    if np is not None:
+        if isinstance(obj, (np.integer,)):
+            return int(obj)
+        if isinstance(obj, (np.floating,)):
+            v = float(obj)
+            return v if math.isfinite(v) else None
+        if isinstance(obj, np.ndarray):
+            # convert to nested Python lists and scrub non-finite values
+            if np.issubdtype(obj.dtype, np.floating):
+                lst = obj.astype(float).tolist()
+            else:
+                lst = obj.tolist()
+            return _replace_nonfinite_in_list(lst)
