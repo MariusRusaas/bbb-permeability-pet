@@ -11,35 +11,41 @@ except:
     from utils.ktools import aath_bfm
 
 
-def perfusionPipeline(IF, IFframes, TAC, TACframes, numit=1, adjustTAC=(False,0.3), td_params=(-10,50,1), Tc_params=(2,50,1), k2_params=(1e-5,0.25,100)):
+def perfusionPipeline(IF, IFframes, TAC, TACframes, numit=1, adjustTAC=(False,0.5), td_params_orig=(-5,30,1), Tc_params_orig=(2,50,1), k2_params_orig=(1e-5,0.25,100)):
 
     IFframes = np.array(IFframes); IF = np.array(IF)
     TACframes = np.array(TACframes); TAC = np.array(TAC)
-    # (Optionally) dampen signal spill-in
-    frms = []; n = 0
-    while adjustTAC[0] and IF[n] < adjustTAC[1]*np.max(IF):
-        frms.append(n)
-        n+=1
-    if len(frms) > 0: TAC[frms] = 0
-    
+
     # resample to second-intervals
     IFframes = IFframes - IFframes[0]; TACframes = TACframes - TACframes[0] # Start framing at curve in 0
     frames = np.array([i for i in range(0, np.floor(np.min([np.max(IFframes), np.max(TACframes)])).astype(int)+1)])
     IF = np.interp(frames, IFframes, IF)
     TAC = np.interp(frames, TACframes, TAC)
 
-    fitcrv, bbbresult = aath_bfm(frames, IF, TAC, td_params=td_params, Tc_params=Tc_params, k2_params=k2_params)
+    # (Optionally) mask frames with signal spill-in
+    if adjustTAC[0]:
+        mask = [True]*len(frames); Start=False; Stop=False
+        IFnorm = (IF / np.max(TAC) if np.max(IF) > 0 else IF) * np.max(TAC)
+        for n in range(len(frames)):
+            if TAC[n] > IFnorm[n]: Start=True
+            if Start and IF[n] > adjustTAC[1]*np.max(IF):Stop=True
+            if Start and not Stop: mask[n] = False
+            if Stop: break
+    else: mask = None
+
+    fitcrv, bbbresult = aath_bfm(frames, IF, TAC, mask=mask, td_params=td_params_orig, Tc_params=Tc_params_orig, k2_params=k2_params_orig)
     bstfit, bestbb = fitcrv, bbbresult
 
     if numit > 1:
+        td_params, Tc_params, k2_params = td_params_orig, Tc_params_orig, k2_params_orig
         for i in range(numit-1):
             ranges = update_search_ranges(td_params, Tc_params, k2_params,
                                     best_td=bbbresult['td'][0], best_Tc=bbbresult['Tc'][0], best_k2=bbbresult['k2'][0]/60,
                                     iter_idx=i,
-                                    td_bounds=(-10, 50), Tc_bounds=(3, 50), k2_bounds=(1e-5, 0.25),
+                                    td_bounds=td_params_orig[:2], Tc_bounds=Tc_params_orig[:2], k2_bounds=k2_params_orig[:2],
                                     min_step=0.01)
             td_params, Tc_params, k2_params = ranges['td_params'], ranges['Tc_params'], ranges['k2_params']
-            fitcrv, bbbresult = aath_bfm(frames, IF, TAC, 
+            fitcrv, bbbresult = aath_bfm(frames, IF, TAC, mask=mask, 
                                         td_params=td_params, 
                                         Tc_params=Tc_params, 
                                         k2_params=k2_params)
@@ -288,6 +294,7 @@ def parsePetMetricsJson(jsonPath, frmInfo=False):
     # Assume only one PET dataset key
 
     for petKey in jsonData.get("Procedure")["PET list"]:
+        if petKey not in metrics: continue
 
         organs = metrics[petKey].get("organs", {})
 

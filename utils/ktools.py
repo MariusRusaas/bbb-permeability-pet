@@ -154,24 +154,32 @@ def create_aath_bfm_matrix(t, Cwb, Cp=None, printlog=False,
     
     return sysmat, td_lut, Tc_lut, k2_lut
 
-def aath_bfm(t, Cwb, Q_t, Cp=None, multi=False, printlog=False, **kwargs):
-    
+def aath_bfm(t, Cwb, Q_t, Cp=None, multi=False, printlog=False, mask=None, **kwargs):
+
     t_str0 = time.time()
-    
+
     if Cp is None:
         Cp = Cwb
-    
+
     if Q_t.ndim == 1:
         Q_t = np.expand_dims(Q_t, axis=0)
-        
+
     ncurves, nt = Q_t.shape
     Q_t_fit = np.zeros_like(Q_t)
-    
+
     sysmat, td_lut, Tc_lut, k2_lut = create_aath_bfm_matrix(t, Cwb, Cp=Cp, printlog=printlog, **kwargs)
-    
+
     nbasis, nt_sys, nparams = sysmat.shape
     if nt_sys > nt:
         Q_t = np.copy(np.pad(Q_t, ((0,0),(0, int(nt_sys - nt))), mode='constant', constant_values=0))
+
+    # Build row mask for NNLS: select valid time points, always keep the slack row
+    if mask is not None:
+        mask = np.asarray(mask, dtype=bool)
+        # sysmat/Q_t have nt_sys rows: first nt are data, last 1 is slack constraint
+        fit_mask = np.append(mask, True)  # always keep slack row
+    else:
+        fit_mask = np.ones(nt_sys, dtype=bool)
     
     if printlog:
         print('ncurves:', ncurves)
@@ -183,26 +191,30 @@ def aath_bfm(t, Cwb, Q_t, Cp=None, multi=False, printlog=False, **kwargs):
     K1 = np.zeros(ncurves)
     k2 = np.zeros(ncurves)
     
+    # Masked views used only for NNLS; full sysmat used for reconstructing Q_t_fit
+    sysmat_fit = sysmat[:, fit_mask, :]
+    Q_t_for_fit = Q_t[:, fit_mask]
+
     if multi:
-        f = partial(batch_nnls, sysmat=sysmat)
+        f = partial(batch_nnls, sysmat=sysmat_fit)
         batch_size = np.ceil(ncurves / (os.cpu_count())).astype(int)
         batch_size = np.min([batch_size, 2**13])
-        
+
         pool = Pool(processes=os.cpu_count(), maxtasksperchild=1)
-        ResultList = pool.map(f, Q_t, chunksize=batch_size)
+        ResultList = pool.map(f, Q_t_for_fit, chunksize=batch_size)
         pool.close()
         pool.join()
-        
+
         x_list = [res[0] for res in ResultList]
         idx_list = [res[1] for res in ResultList]
-        
+
         td = np.array([td_lut[idx] for idx in idx_list])
         Tc = np.array([Tc_lut[idx] for idx in idx_list])
         k2 = np.array([k2_lut[idx] for idx in idx_list])
-        
+
         F = np.array([x[0] for x in x_list])
         K1 = np.array([x[1] for x in x_list])
-        
+
         for ii in range(ncurves):
             idx = idx_list[ii]
             Q_t_fit[ii,:] = sysmat[idx,:nt,:].dot(x_list[ii])
@@ -211,26 +223,31 @@ def aath_bfm(t, Cwb, Q_t, Cp=None, multi=False, printlog=False, **kwargs):
             x_list = []
             r_list = []
             for jj in range(nbasis):
-                x, r = nnls(sysmat[jj,:,:], Q_t[ii,:])
+                x, r = nnls(sysmat_fit[jj,:,:], Q_t_for_fit[ii,:])
                 x_list.append(x)
                 r_list.append(r)
-            
+
             idx = np.argmin(r_list)
             td[ii] = td_lut[idx]
             Tc[ii] = Tc_lut[idx]
             k2[ii] = k2_lut[idx]
             F[ii] = x_list[idx][0]
             K1[ii] = x_list[idx][1]
-            
+
             Q_t_fit[ii,:] = sysmat[idx,:nt,:].dot(x_list[idx])
-        
+
     E = np.divide(K1, F, where=F>0, out=np.zeros_like(F))
     E = np.clip(E, 0, 0.9999)
     PS = -F*np.log(1-E, where=E<=0.9999, out=np.zeros_like(F))
     vb = F*Tc
     ve = np.divide(K1, k2, where=k2>0, out=np.zeros_like(K1))
-    
-    aic = akaike_information_criteria(Q_t[:,:len(t)], Q_t_fit, 5) # nparams = 5; F, K1, k2, td, Tc
+
+    # AIC computed only over the valid (unmasked) time points
+    # Note: Q_t was padded to nt+1 for the slack constraint, so slice back to nt first
+    if mask is not None:
+        aic = akaike_information_criteria(Q_t[:, :nt][:, mask], Q_t_fit[:, mask], 5)
+    else:
+        aic = akaike_information_criteria(Q_t[:, :nt], Q_t_fit, 5)  # nparams = 5; F, K1, k2, td, Tc
     
     kparams = {'td' : td,       # [s]
                'Tc' : Tc,       # [s]
