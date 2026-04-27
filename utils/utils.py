@@ -11,7 +11,7 @@ except:
     from utils.ktools import aath_bfm
 
 
-def perfusionPipeline(IF, IFframes, TAC, TACframes, numit=1, adjustTAC=(False,0.5), td_params_orig=(-5,30,1), Tc_params_orig=(2,50,1), k2_params_orig=(1e-5,0.25,100)):
+def perfusionPipeline(IF, IFframes, TAC, TACframes, numit=1, adjustTAC=(False,0.5), td_params_orig=(-5,30,1), Tc_params_orig=(2,50,1), k2_params_orig=(1e-5,0.25,100), priors=None):
 
     IFframes = np.array(IFframes); IF = np.array(IF)
     TACframes = np.array(TACframes); TAC = np.array(TAC)
@@ -33,7 +33,7 @@ def perfusionPipeline(IF, IFframes, TAC, TACframes, numit=1, adjustTAC=(False,0.
             if Stop: break
     else: mask = None
 
-    fitcrv, bbbresult = aath_bfm(frames, IF, TAC, mask=mask, td_params=td_params_orig, Tc_params=Tc_params_orig, k2_params=k2_params_orig)
+    fitcrv, bbbresult = aath_bfm(frames, IF, TAC, mask=mask, td_params=td_params_orig, Tc_params=Tc_params_orig, k2_params=k2_params_orig, priors=priors)
     bstfit, bestbb = fitcrv, bbbresult
 
     if numit > 1:
@@ -48,7 +48,8 @@ def perfusionPipeline(IF, IFframes, TAC, TACframes, numit=1, adjustTAC=(False,0.
             fitcrv, bbbresult = aath_bfm(frames, IF, TAC, mask=mask, 
                                         td_params=td_params, 
                                         Tc_params=Tc_params, 
-                                        k2_params=k2_params)
+                                        k2_params=k2_params,
+                                        priors=priors)
             
             if bbbresult['aic'][0] < bestbb['aic'][0]: bstfit, bestbb = fitcrv, bbbresult 
 

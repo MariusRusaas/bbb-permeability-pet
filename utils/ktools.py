@@ -20,6 +20,13 @@ try:
 except:
     from utils.mathtools import logspace_with_bounds, batch_nnls
 
+def _parse_prior(val):
+    if isinstance(val, (tuple, list)):
+        return float(val[0]), float(val[1])
+    mu = float(val)
+    return mu, 0.5 * mu
+
+
 def convolve_exp(t, f_t, alpha):
     
     """
@@ -154,7 +161,7 @@ def create_aath_bfm_matrix(t, Cwb, Cp=None, printlog=False,
     
     return sysmat, td_lut, Tc_lut, k2_lut
 
-def aath_bfm(t, Cwb, Q_t, Cp=None, multi=False, printlog=False, mask=None, **kwargs):
+def aath_bfm(t, Cwb, Q_t, Cp=None, multi=False, printlog=False, mask=None, priors=None, **kwargs):
 
     t_str0 = time.time()
 
@@ -227,7 +234,16 @@ def aath_bfm(t, Cwb, Q_t, Cp=None, multi=False, printlog=False, mask=None, **kwa
                 x_list.append(x)
                 r_list.append(r)
 
-            idx = np.argmin(r_list)
+            r_arr = np.array(r_list)
+            cost = r_arr.copy()
+            if priors:
+                r_scale = np.mean(r_arr)
+                for param, prior_val in priors.items():
+                    if param == 'vb':
+                        mu, sigma = _parse_prior(prior_val)
+                        vb_arr = np.array([x_list[jj][0] * Tc_lut[jj] for jj in range(nbasis)])
+                        cost += r_scale * (vb_arr - mu) ** 2 / (2 * sigma ** 2)
+            idx = np.argmin(cost)
             td[ii] = td_lut[idx]
             Tc[ii] = Tc_lut[idx]
             k2[ii] = k2_lut[idx]
